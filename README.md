@@ -45,15 +45,26 @@ npx http-server -p 8787
 │   ├── ui.js           # 渲染层：面板绘制、技能树 SVG 连线、toast / 弹窗 / 粒子
 │   └── app.js          # 应用层：初始化、事件绑定、跨天监测、存档管理
 ├── test/
-│   ├── logic-test.js   # 纯逻辑测试（Node，无需浏览器）
-│   ├── dom-test.js     # DOM 集成测试（jsdom）
-│   ├── browser-check.js# 真实浏览器检查（Edge headless + CDP，含截图）
-│   └── shots/          # 真实浏览器截图产物
-├── TEST-REPORT.md      # 测试结果与已知问题
+│   ├── logic-test.js      # 纯逻辑测试（Node，无需浏览器）
+│   ├── dom-test.js        # DOM 集成测试（jsdom）
+│   ├── browser-check.js   # 真实浏览器检查（Edge headless + CDP，真实鼠标事件 + 截图）
+│   ├── touch-check.js     # 移动端真实触摸交互检查（CDP 触摸事件序列）
+│   ├── deploy-failure.js  # 部署故障注入：模拟 js 目录 404，验证错误提示
+│   └── shots/             # 真实浏览器截图产物
+├── .nojekyll              # 告诉 GitHub Pages 不要用 Jekyll 处理本仓库
+├── TEST-REPORT.md         # 测试结果与已知问题
 └── README.md
 ```
 
 代码按数据 / 逻辑 / 渲染 / 应用四层拆分，单个函数职责单一，没有巨型函数。
+
+### 启动自检
+
+`index.html` 内置了一段不依赖外部文件的启动自检脚本：
+
+- 每个外链脚本都带 `onerror`，若某个文件 404 会被记录。
+- 页面加载完成后若发现 `window.LQ` 未就绪或初始化异常，会在页面顶部弹出**红色提示框**，明确指出失败的文件、给出检查步骤，并提供「诊断资源加载状态」按钮（逐个文件检测 HTTP 状态码）与「重新加载页面」按钮。
+- 正常情况下该提示不会出现，不影响界面。
 
 ---
 
@@ -153,6 +164,26 @@ npx http-server -p 8787
 
 ## 五、免费部署指南（GitHub Pages）
 
+> ❗ **必须上传完整的目录结构，不能只传 `index.html`。**
+> 只上传 `index.html` + `style.css` 会出现「页面样式和中文正常，但所有按钮点了没反应」——
+> 因为 JavaScript 所在目录缺失，脚本全部 404。现在遇到这种情况，页面会自己弹出红色提示框告诉你哪个文件没加载。
+
+### 必须存在的文件（缺一不可）
+
+```
+index.html
+style.css
+.nojekyll
+js/store.js
+js/tasks.js
+js/skills.js
+js/achievements.js
+js/ui.js
+js/app.js
+```
+
+### 部署步骤
+
 1. 在 GitHub 新建一个仓库，例如 `life-quest`（Public）。
 2. 把项目文件上传到仓库根目录（`index.html` 必须在根目录）：
    ```bash
@@ -164,9 +195,26 @@ npx http-server -p 8787
    git remote add origin https://github.com/<你的用户名>/life-quest.git
    git push -u origin main
    ```
-   也可以在仓库页面点 `Add file → Upload files` 直接拖拽上传。
+   也可以在仓库页面点 `Add file → Upload files`，**把整个文件夹拖进去**（网页上传支持拖拽文件夹并保留目录结构，不要只拖单个文件）。
 3. 仓库页面进入 `Settings → Pages`，`Source` 选择 `Deploy from a branch`，分支选 `main`、目录选 `/ (root)`，保存。
 4. 等待约 1 分钟，访问 `https://<你的用户名>.github.io/life-quest/`。
+
+### 部署后自检（30 秒）
+
+在浏览器地址栏依次打开下面三个地址，**都应该显示代码内容而不是 404**：
+
+```
+https://<你的用户名>.github.io/life-quest/
+https://<你的用户名>.github.io/life-quest/js/app.js
+https://<你的用户名>.github.io/life-quest/style.css
+```
+
+如果 `js/app.js` 是 404，就是文件没上传成功，重新上传 `js` 文件夹即可。
+
+### 更新代码后没生效？
+
+- 手机浏览器缓存很激进：在浏览器设置里清除该站点数据，或用无痕窗口打开。
+- GitHub Pages 有约 1 分钟构建延迟，可在仓库 `Actions` 页面查看部署状态。
 
 **其他免费选项**：Cloudflare Pages、Netlify（直接把文件夹拖到 netlify.com/drop）、Vercel、Gitee Pages。
 
@@ -174,6 +222,18 @@ npx http-server -p 8787
 
 ---
 
-## 六、测试与已知问题
+## 六、交互兼容性说明
 
-见 [`TEST-REPORT.md`](./TEST-REPORT.md)。三套测试共 117 项全部通过，其中包含真实 Edge 浏览器（headless + CDP）的渲染、交互、控制台错误与移动端视口检查。
+点击交互做了三层保障，鼠标与触屏都能用：
+
+1. **主路径**：`document` 上的 `click` 事件委托（鼠标与触摸设备通用）。
+2. **目标查找不依赖 `Element.closest`**：自己逐层向上遍历 `parentNode` 查找 `data-action`，避免老 WebView 缺少该方法时全部按钮失效。
+3. **触摸兜底**：若某次触摸在 350ms 内没有产生 `click`（少数老旧 WebView 不会合成 click），由 `touchend` 直接执行该操作。两条路径互斥，不会重复执行，也不会吞掉用户的连续点击。
+
+另外：`touch-action: manipulation` 消除移动端双击缩放带来的点击延迟；移动端按钮最小高度 40px，方便手指点击；任何初始化或运行时异常都会在页面上显示红色提示框，不会出现「点了没反应但毫无线索」的情况。
+
+---
+
+## 七、测试与已知问题
+
+见 [`TEST-REPORT.md`](./TEST-REPORT.md)。五套测试共 158 项全部通过，包含真实 Edge 浏览器（headless + CDP）的**真实鼠标事件**与**真实触摸序列**、移动端双 UA（Android Chrome / iOS Safari）、以及「js 目录 404」的部署故障注入验证。

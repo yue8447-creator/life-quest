@@ -239,11 +239,164 @@
   </div>
 </div>
 
-<script src="js/store.js"></script>
-<script src="js/tasks.js"></script>
-<script src="js/skills.js"></script>
-<script src="js/achievements.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/app.js"></script>
+<!-- ============================================================
+     脚本加载区
+     每个外链脚本都带 onerror 追踪，便于部署后快速定位 404
+     ============================================================ -->
+<script>
+/* 内联：记录脚本加载失败（不依赖任何外部文件，即使 js 目录整个缺失也能运行） */
+(function () {
+  var failed = [];
+  window.__LQ_SCRIPT_ERRORS__ = failed;
+  window.__LQ_onScriptError = function (src) { if (failed.indexOf(src) < 0) failed.push(src); };
+})();
+</script>
+<script src="js/store.js" onerror="window.__LQ_onScriptError('js/store.js')"></script>
+<script src="js/tasks.js" onerror="window.__LQ_onScriptError('js/tasks.js')"></script>
+<script src="js/skills.js" onerror="window.__LQ_onScriptError('js/skills.js')"></script>
+<script src="js/achievements.js" onerror="window.__LQ_onScriptError('js/achievements.js')"></script>
+<script src="js/ui.js" onerror="window.__LQ_onScriptError('js/ui.js')"></script>
+<script src="js/app.js" onerror="window.__LQ_onScriptError('js/app.js')"></script>
+
+<!-- ============================================================
+     启动自检（内联，样式全部内联，不依赖 style.css）
+     JS 未加载或初始化失败时，直接在页面上给出可操作的提示，
+     避免出现"页面能看但按钮点了没反应"的黑箱状态。
+     ============================================================ -->
+<script>
+(function () {
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  /* 显示提示横幅（可被 app.js 的初始化异常处理复用） */
+  window.__LQ_showBanner = function (title, lines, showProbe, extra) {
+    if (document.getElementById("lqBootError")) return;
+    if (!document.body) return;
+
+    var box = document.createElement("div");
+    box.id = "lqBootError";
+    box.setAttribute("role", "alert");
+    box.style.cssText =
+      "position:fixed;z-index:2147483647;left:12px;right:12px;top:12px;max-width:680px;margin:0 auto;" +
+      "background:#1b0f16;color:#ffe4e6;border:1px solid #f87171;border-radius:14px;padding:16px 18px;" +
+      "font:14px/1.65 system-ui,-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;" +
+      "box-shadow:0 20px 60px rgba(0,0,0,.65);max-height:82vh;overflow:auto;text-align:left;";
+
+    var html = '<div style="font-size:16px;font-weight:700;color:#fecaca;margin:0 0 8px;">⚠️ ' + esc(title) + "</div>";
+    html += '<ul style="margin:0 0 10px;padding-left:20px;">';
+    lines.forEach(function (l) { html += '<li style="margin:4px 0;">' + l + "</li>"; });
+    html += "</ul>";
+
+    if (extra) {
+      html += '<pre style="margin:8px 0 12px;padding:10px 12px;background:#0b0f1c;border-radius:9px;' +
+        'color:#fca5a5;font-size:11.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;max-height:180px;overflow:auto;">' +
+        esc(extra) + "</pre>";
+    }
+
+    html += '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px;">';
+    if (showProbe) {
+      html += '<button id="lqProbeBtn" type="button" style="background:#22d3ee;color:#04121a;font-weight:700;border:0;' +
+        'border-radius:9px;padding:10px 15px;font-size:13.5px;cursor:pointer;">诊断资源加载状态</button>';
+    }
+    html += '<button id="lqReloadBtn" type="button" style="background:#f87171;color:#1a0505;font-weight:700;border:0;' +
+      'border-radius:9px;padding:10px 15px;font-size:13.5px;cursor:pointer;">重新加载页面</button>';
+    html += '<button id="lqCloseBtn" type="button" style="background:transparent;color:#fecaca;border:1px solid #f87171;' +
+      'border-radius:9px;padding:10px 15px;font-size:13.5px;cursor:pointer;">关闭提示</button>';
+    html += "</div>";
+    if (showProbe) {
+      html += '<pre id="lqProbeOut" style="margin:10px 0 0;padding:10px 12px;background:#0b0f1c;border-radius:9px;' +
+        'color:#9ae6b4;font-size:11.5px;line-height:1.55;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;"></pre>';
+    }
+    box.innerHTML = html;
+    document.body.appendChild(box);
+
+    var rb = document.getElementById("lqReloadBtn");
+    if (rb) rb.addEventListener("click", function () { location.reload(); });
+    var cb = document.getElementById("lqCloseBtn");
+    if (cb) cb.addEventListener("click", function () { if (box.parentNode) box.parentNode.removeChild(box); });
+
+    var pb = document.getElementById("lqProbeBtn");
+    if (pb) pb.addEventListener("click", function () {
+      var out = document.getElementById("lqProbeOut");
+      var files = ["index.html", "style.css", "js/store.js", "js/tasks.js", "js/skills.js",
+                   "js/achievements.js", "js/ui.js", "js/app.js"];
+      out.textContent = "检测中…（共 " + files.length + " 个文件）";
+      var lines2 = [];
+      var done = 0;
+      files.forEach(function (f) {
+        var url = new URL(f, location.href).href;
+        fetch(url, { cache: "no-store" }).then(function (r) {
+          lines2.push((r.ok ? "✅ " : "❌ ") + r.status + "  " + url);
+        }).catch(function () {
+          lines2.push("❌ 无法访问  " + url);
+        }).then(function () {
+          done += 1;
+          if (done === files.length) {
+            lines2.sort();
+            out.textContent = lines2.join("\n") + "\n\n（❌ 表示文件没有部署成功）";
+          }
+        });
+      });
+    });
+  };
+
+  function check() {
+    if (document.getElementById("lqBootError")) return;   // 已经提示过
+    var LQ = window.LQ;
+    var failedSrc = window.__LQ_SCRIPT_ERRORS__ || [];
+    var bootErr = window.__LQ_BOOT_ERROR__;
+    var ready = !!(LQ && LQ.App && LQ.App.ready);
+    if (ready && !bootErr) return;   // 一切正常，静默
+
+    var missing = [];
+    if (!LQ) {
+      missing.push("全部脚本均未加载");
+    } else {
+      if (!LQ.Store) missing.push("js/store.js");
+      if (!LQ.Tasks) missing.push("js/tasks.js");
+      if (!LQ.Skills) missing.push("js/skills.js");
+      if (!LQ.Achievements) missing.push("js/achievements.js");
+      if (!LQ.UI) missing.push("js/ui.js");
+      if (!LQ.App) missing.push("js/app.js");
+    }
+
+    var isFile = location.protocol === "file:";
+    var title = "JavaScript 未能加载，页面按钮无法点击";
+    var lines = [];
+
+    if (bootErr) {
+      title = "页面初始化失败，交互功能不可用";
+      lines.push("脚本已加载，但初始化过程中发生异常。");
+    }
+    if (failedSrc.length) {
+      lines.push("以下文件加载失败（404 或路径错误）：<b style='color:#fca5a5'>" + failedSrc.map(esc).join("、") + "</b>");
+    }
+    if (missing.length) {
+      lines.push("未就绪的模块：" + missing.map(esc).join("、"));
+    }
+    if (isFile) {
+      lines.push("当前是本地文件方式打开：请确认 <b>js</b> 文件夹与 index.html 位于同一目录，且六个 .js 文件都在其中。");
+    } else {
+      lines.push("最常见原因：部署时只上传了 index.html 和 style.css，<b>漏掉了 js 文件夹</b>。");
+      lines.push("请确认仓库根目录下存在 <b>js/</b> 目录，且包含 store.js、tasks.js、skills.js、achievements.js、ui.js、app.js。");
+      lines.push("也可以直接在浏览器打开 <b>" + esc(new URL("js/app.js", location.href).href) + "</b>，若显示 404 就说明文件未部署。");
+      lines.push("若刚更新过文件，请在手机浏览器中清除缓存或强制刷新后重试。");
+    }
+    lines.push("点击「诊断资源加载状态」可自动检测每个文件的 HTTP 状态码。");
+
+    window.__LQ_showBanner(title, lines, !isFile, bootErr || null);
+  }
+
+  function schedule() {
+    // 留出时间让外链脚本执行完毕，再做判定
+    setTimeout(check, 150);
+  }
+  if (document.readyState === "complete") schedule();
+  else window.addEventListener("load", schedule);
+})();
+</script>
 </body>
 </html>
