@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="description" content="LIFE QUEST｜人生技能树：把学习、运动、阅读和创造变成一场 RPG 冒险。" />
+<title>LIFE QUEST｜人生技能树</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%A8%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- 背景层：星点 + 光晕 -->
+<div class="bg-layer" aria-hidden="true">
+  <div class="bg-glow bg-glow--cyan"></div>
+  <div class="bg-glow bg-glow--purple"></div>
+  <canvas id="starCanvas" class="star-canvas"></canvas>
+</div>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">LQ</span>
+    <span class="brand-text">
+      <strong>LIFE QUEST</strong>
+      <em>人生技能树</em>
+    </span>
+  </div>
+  <div class="topbar-right">
+    <button type="button" class="chip" id="nameChip" title="点击修改昵称">
+      <span class="chip-avatar" id="chipAvatar" aria-hidden="true">1</span>
+      <span id="topbarName">冒险者</span>
+      <span aria-hidden="true">✏️</span>
+    </button>
+    <button type="button" class="icon-btn" id="btnSettings" title="设置" aria-label="打开设置">⚙️</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- 角色面板 -->
+  <section class="card hero" id="characterPanel" aria-label="角色面板">
+    <div class="hero-top">
+      <div class="avatar" id="avatar">
+        <div class="avatar-ring"></div>
+        <span class="avatar-level" id="heroLevel">1</span>
+        <span class="avatar-label">LV</span>
+      </div>
+      <div class="hero-meta">
+        <h2 class="hero-name" id="heroName">冒险者</h2>
+        <p class="hero-title" id="heroTitle">初入冒险的旅人</p>
+        <p class="hero-date" id="heroDate">—</p>
+      </div>
+    </div>
+
+    <div class="hero-xp">
+      <div class="xp-labels">
+        <span>EXP 经验</span>
+        <span id="xpText">0 / 100</span>
+      </div>
+      <div class="xp-bar" role="progressbar" aria-label="经验值" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="xpBar">
+        <div class="xp-fill" id="xpFill"></div>
+        <div class="xp-shine" aria-hidden="true"></div>
+      </div>
+      <div class="xp-next" id="xpNext">距离下一级还需 100 XP</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat stat--gold">
+        <span class="stat-icon" aria-hidden="true">🪙</span>
+        <span class="stat-value" id="statCoins">0</span>
+        <span class="stat-label">金币</span>
+      </div>
+      <div class="stat stat--purple">
+        <span class="stat-icon" aria-hidden="true">✨</span>
+        <span class="stat-value" id="statPoints">0</span>
+        <span class="stat-label">技能点</span>
+      </div>
+      <div class="stat stat--cyan">
+        <span class="stat-icon" aria-hidden="true">✅</span>
+        <span class="stat-value" id="statTasks">0</span>
+        <span class="stat-label">累计任务</span>
+      </div>
+      <div class="stat stat--fire">
+        <span class="stat-icon" aria-hidden="true">🔥</span>
+        <span class="stat-value" id="statStreak">0</span>
+        <span class="stat-label">连续天数</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 标签导航 -->
+  <nav class="tabs" role="tablist" aria-label="主功能区">
+    <button type="button" class="tab is-active" role="tab" id="tab-tasks" aria-controls="panel-tasks" aria-selected="true" data-action="tab" data-tab="tasks">📋 今日任务</button>
+    <button type="button" class="tab" role="tab" id="tab-skills" aria-controls="panel-skills" aria-selected="false" data-action="tab" data-tab="skills">🌳 技能树</button>
+    <button type="button" class="tab" role="tab" id="tab-achievements" aria-controls="panel-achievements" aria-selected="false" data-action="tab" data-tab="achievements">🏆 成就墙</button>
+    <button type="button" class="tab" role="tab" id="tab-settings" aria-controls="panel-settings" aria-selected="false" data-action="tab" data-tab="settings">⚙️ 设置</button>
+  </nav>
+
+  <!-- 今日任务 -->
+  <section class="panel is-active" id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3 class="card-title">今日任务</h3>
+          <p class="card-sub" id="tasksSummary">已完成 0 / 0</p>
+        </div>
+        <button type="button" class="btn btn--primary" id="btnAddTask" data-action="add-task">＋ 添加任务</button>
+      </div>
+      <div class="day-progress">
+        <div class="day-progress-bar"><div class="day-progress-fill" id="dayProgressFill"></div></div>
+        <span class="day-progress-text" id="dayProgressText">0%</span>
+      </div>
+      <ul class="task-list" id="taskList"></ul>
+      <p class="empty-hint" id="taskEmptyHint" hidden>今天还没有任务，点击「添加任务」开始冒险。</p>
+    </div>
+
+    <div class="card card--soft">
+      <h3 class="card-title">每日奖励规则</h3>
+      <ul class="rule-list">
+        <li><b>任务经验</b>：每个任务可设置 <b>5 ~ 50 XP</b>（默认 20 XP）。</li>
+        <li><b>任务金币</b>：每个任务可设置 <b>1 ~ 20 金币</b>（默认 5 金币）。</li>
+        <li><b>升级所需经验</b>：第 1→2 级需要 100 XP，之后每级递增 50 XP（第 2→3 级 150 XP，第 3→4 级 200 XP …）。</li>
+        <li><b>升级奖励</b>：每升 1 级获得 <b>1 个技能点</b>。</li>
+        <li><b>领取限制</b>：每个任务<b>每天只能领取一次</b>奖励，重复点击不会重复发放。</li>
+        <li><b>跨天重置</b>：日期变更后任务完成状态自动重置，任务定义保留，历史记录不会清空。</li>
+        <li><b>连续打卡</b>：当天完成至少 1 个任务即视为打卡，连续天数随之累加。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 技能树 -->
+  <section class="panel" id="panel-skills" role="tabpanel" aria-labelledby="tab-skills" hidden>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3 class="card-title">技能树</h3>
+          <p class="card-sub">点击节点查看详情，满足前置与技能点后即可解锁</p>
+        </div>
+        <div class="points-pill">✨ 可用技能点 <b id="pointsPill">0</b></div>
+      </div>
+      <div class="skill-tree" id="skillTree">
+        <svg class="tree-links" id="treeLinks" aria-hidden="true"></svg>
+        <!-- 分支由 JS 渲染 -->
+      </div>
+    </div>
+    <div class="card card--soft" id="skillDetailCard">
+      <h3 class="card-title">节点详情</h3>
+      <div id="skillDetail" class="skill-detail">
+        <p class="muted">尚未选择节点。点击上方任意技能节点查看说明与解锁条件。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 成就墙 -->
+  <section class="panel" id="panel-achievements" role="tabpanel" aria-labelledby="tab-achievements" hidden>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3 class="card-title">成就墙</h3>
+          <p class="card-sub" id="achSummary">已解锁 0 / 0</p>
+        </div>
+      </div>
+      <div class="ach-grid" id="achGrid"></div>
+    </div>
+  </section>
+
+  <!-- 设置 -->
+  <section class="panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+    <div class="card">
+      <h3 class="card-title">角色</h3>
+      <div class="form-row">
+        <label for="inputName">昵称</label>
+        <div class="form-inline">
+          <input type="text" id="inputName" maxlength="12" placeholder="冒险者" />
+          <button type="button" class="btn btn--primary" id="btnSaveName">保存</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>动态效果</label>
+        <div class="toggle-row">
+          <button type="button" class="btn btn--ghost" id="btnToggleMotion" aria-pressed="false">跟随系统</button>
+          <span class="muted" id="motionHint">星点、粒子与过渡动画</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">数据管理</h3>
+      <p class="warn-line">⚠️ 存档仅保存在当前浏览器的 localStorage 中。<b>清除浏览器网站数据、使用无痕模式或更换设备/浏览器都会导致存档丢失</b>，建议定期导出备份。</p>
+      <div class="data-actions">
+        <button type="button" class="btn" id="btnExport">⬇️ 导出存档</button>
+        <button type="button" class="btn" id="btnImport">⬆️ 导入存档</button>
+        <button type="button" class="btn" id="btnRestoreTasks">♻️ 恢复默认任务</button>
+        <button type="button" class="btn btn--danger" id="btnReset">🗑️ 重置游戏</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json,.json" hidden />
+      <dl class="meta-list" id="saveMeta"></dl>
+      <details class="rules-details">
+        <summary>查看完整奖励与规则说明</summary>
+        <ul class="rule-list">
+          <li>任务经验范围 5 ~ 50 XP，金币范围 1 ~ 20，超出范围会自动收敛到边界值。</li>
+          <li>升级需求公式：<code>需求 = 100 + (当前等级 - 1) × 50</code>。</li>
+          <li>升级后多余经验会保留并自动结算连续升级。</li>
+          <li>经验、金币、技能点均为非负数，任何异常存档都会被自动修复。</li>
+          <li>每个任务领取奖励时会记录「任务 ID + 日期」，同一日期不可重复领取；若检测到系统日期被回拨，将拒绝发放奖励。</li>
+          <li>连续打卡历史最多保留最近 60 天，领取记录最多保留最近 400 条。</li>
+          <li>网站不发起任何网络请求，数据不会上传。</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>LIFE QUEST v1.0 · 本地存档 · 无网络请求</span>
+  </footer>
+</main>
+
+<!-- 提示层 -->
+<div class="toast-layer" id="toastLayer" aria-live="polite" aria-atomic="false"></div>
+<div class="fx-layer" id="fxLayer" aria-hidden="true"></div>
+
+<!-- 通用弹窗 -->
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 class="modal-title" id="modalTitle">标题</h3>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
+</div>
+
+<!-- 升级全屏特效 -->
+<div class="levelup-overlay" id="levelupOverlay" hidden>
+  <div class="levelup-inner">
+    <p class="levelup-kicker">LEVEL UP</p>
+    <p class="levelup-level">LV <span id="levelupValue">2</span></p>
+    <p class="levelup-note" id="levelupNote">获得 1 技能点</p>
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/skills.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
